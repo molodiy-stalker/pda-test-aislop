@@ -1,0 +1,66 @@
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --pda-amber: #ff9d00;
+    --pda-amber-bright: #ffbe3b;
+    --pda-amber-dim: #7a4b00;
+    --pda-bg: #0e1013;
+    --pda-panel: #14171c;
+    --pda-border: #2a2f38;
+    --pda-text: #d0d4da;
+    --pda-muted: #6b7280;
+  }
+}
+
+/* Subtle military CRT Scanlines & tactical glass effect */
+.pda-screen-scanlines {
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%, 
+    rgba(0, 0, 0, 0.25) 50%
+  ), linear-gradient(
+    90deg,
+    rgba(255, 0, 0, 0.02),
+    rgba(0, 255, 0, 0.01),
+    rgba(0, 0, 255, 0.02)
+  );
+  background-size: 100% 3px, 6px 100%;
+  pointer-events: none;
+}
+
+.pda-screen-vignette {
+  box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.8), inset 0 0 30px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+}
+
+/* Custom Tactical Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(15, 18, 22, 0.7);
+  border-left: 1px solid rgba(255, 255, 255, 0.05);
+}
+::-webkit-scrollbar-thumb {
+  background: #3a414d;
+  border-radius: 1px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #ff9d00;
+}
+
+/* Tactical military grid lines */
+.tactical-grid {
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.tactical-dots {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 24px 24px;
+}

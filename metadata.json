@@ -1,0 +1,6 @@
+{
+  "name": "S.T.A.L.K.E.R. 2 PDA (Heart of Chornobyl)",
+  "description": "Authentic interactive replica of the S.T.A.L.K.E.R. 2 Heart of Chornobyl PDA tablet featuring Map, Journal, Notes, Upgrades, and Survival Guide.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
