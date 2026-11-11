@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { WeaponGearItem, UpgradeNode, Language } from '../../types/pda';
 import { calculateWeaponStats, toggleUpgradeNode } from '../../utils/pdaLogic';
 import { playPdaClick, playUpgradeSound, playWeaponShot } from '../../utils/audio';
+import skifPistol from '../../assets/pda/skif_pistol.png';
 import { 
   Crosshair, 
   Zap, 
@@ -285,7 +286,7 @@ export const UpgradesTab: React.FC<UpgradesTabProps> = ({
             {selectedWeapon.id === 'skif-pistol' ? (
               <div className="relative w-full h-full flex items-center justify-center">
                 <img
-                  src="/src/assets/pda/skif_pistol.png"
+                  src={skifPistol}
                   alt="Weapon Diagram"
                   className="w-full h-full object-contain pointer-events-none filter contrast-125 drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)]"
                 />

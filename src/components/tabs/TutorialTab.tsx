@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TutorialTopic, Language } from '../../types/pda';
+import tutorialInventory from '../../assets/pda/tutorial_inventory.png';
 import { 
   playPdaClick, 
   playBoltThrow, 
@@ -540,7 +541,7 @@ export const TutorialTab: React.FC<TutorialTabProps> = ({
 
               <div className="relative w-full aspect-[4/3] rounded overflow-hidden border border-[#2a303c] flex items-center justify-center bg-[#090b0e]">
                 <img
-                  src="/src/assets/pda/tutorial_inventory.png"
+                  src={tutorialInventory}
                   alt="Tutorial Visual"
                   className="w-full h-full object-contain filter brightness-95 contrast-110"
                 />

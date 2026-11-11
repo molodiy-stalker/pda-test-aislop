@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Quest, Language } from '../../types/pda';
 import { filterQuests, setTrackedQuest } from '../../utils/pdaLogic';
 import { playPdaClick } from '../../utils/audio';
+import questBanner from '../../assets/pda/quest_banner.png';
 import { 
   Check, 
   Circle, 
@@ -225,7 +226,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
           {/* Top Banner: Authentic Concept Header Image */}
           <div className="relative h-56 w-full overflow-hidden border-b border-[#222731] shrink-0">
             <img
-              src="/src/assets/pda/quest_banner.png"
+              src={questBanner}
               alt="Mission Header"
               className="w-full h-full object-cover filter brightness-95 contrast-110"
             />

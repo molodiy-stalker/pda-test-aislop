@@ -300,9 +300,9 @@ export function playCampfireGuitarChord(chordIndex = 0) {
 
 // Local MP3 audio tracks uploaded for quest events
 const LOCAL_AUDIO_TRACKS = {
-  accepted: '/assets/aistudio/1_6efc6021.mp3',      // 1 прийнято
-  accomplished: '/assets/aistudio/2_da8b9d7b.mp3',  // 2 виконано
-  failed: '/assets/aistudio/3_92261911.mp3',        // 3 провалено
+  accepted: `${import.meta.env.BASE_URL}assets/aistudio/1_6efc6021.mp3`,      // 1 прийнято
+  accomplished: `${import.meta.env.BASE_URL}assets/aistudio/2_da8b9d7b.mp3`,  // 2 виконано
+  failed: `${import.meta.env.BASE_URL}assets/aistudio/3_92261911.mp3`,        // 3 провалено
 };
 
 let currentAudioElem: HTMLAudioElement | null = null;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NoteItem, Language } from '../../types/pda';
 import { playPdaClick, playCampfireGuitarChord, playDetectorBeep } from '../../utils/audio';
+import notesDesk from '../../assets/pda/notes_desk.png';
 import { 
   FileText, 
   AlertCircle, 
@@ -322,7 +323,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({
           {/* Bunker Desk Ambient Graphic */}
           <div className="absolute bottom-4 right-4 w-72 h-48 pointer-events-none opacity-40 mix-blend-screen overflow-hidden rounded-lg">
             <img
-              src="/src/assets/pda/notes_desk.png"
+              src={notesDesk}
               alt="Bunker desk"
               className="w-full h-full object-cover filter contrast-125"
             />
