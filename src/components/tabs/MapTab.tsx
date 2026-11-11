@@ -1,5 +1,7 @@
 import React, { useRef, useState, useEffect, useMemo } from 'react';
+import * as L from 'leaflet';
 import { MapMarker, MapSector, Language } from '../../types/pda';
+import { getMapMarkerCoordinates, randomizeMapObjectPositions } from '../../utils/mapWorld';
 import { 
   playMarkerPing, 
   playPdaClick, 
@@ -7,7 +9,7 @@ import {
   playDetectorBeep,
   playUpgradeSound 
 } from '../../utils/audio';
-import { filterMapMarkers, calculateTacticalDistance } from '../../utils/pdaLogic';
+import { filterMapMarkers } from '../../utils/pdaLogic';
 import { 
   Compass, 
   MapPin, 
@@ -27,7 +29,8 @@ import {
   Eye,
   Layers,
   Radio,
-  Check
+  Check,
+  Shuffle
 } from 'lucide-react';
 
 interface MapTabProps {
@@ -39,6 +42,7 @@ interface MapTabProps {
   isLegendOpen: boolean;
   onToggleLegend: () => void;
   onCenterPlayerTrigger?: number;
+  onRadiationChange?: (radiation: number) => void;
 }
 
 export const MapTab: React.FC<MapTabProps> = ({
@@ -49,19 +53,29 @@ export const MapTab: React.FC<MapTabProps> = ({
   onRemoveCustomMarker,
   isLegendOpen,
   onToggleLegend,
-  onCenterPlayerTrigger
+  onCenterPlayerTrigger,
+  onRadiationChange
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const osmContainerRef = useRef<HTMLDivElement>(null);
+  const osmMapRef = useRef<L.Map | null>(null);
+  const markerSelectRef = useRef<(marker: MapMarker) => void>(() => {});
+  const addCustomMarkerRef = useRef<(lat: number, lon: number) => void>(() => {});
+  const markersRef = useRef(markers);
+  const hasFittedInitialBoundsRef = useRef(false);
+  markersRef.current = markers;
   
   // Active sector on offline map
-  const [activeSector, setActiveSector] = useState<MapSector>('pripyat-city');
+  const [activeSector, setActiveSector] = useState<MapSector>('zhytomyr-osm');
   
   // Tactical layer mode
   const [mapMode, setMapMode] = useState<'topo' | 'radiation' | 'anomalies'>('topo');
   
   // Viewport transforms
-  const [zoom, setZoom] = useState(1.3);
+  const [zoom, setZoom] = useState(8);
   const [pan, setPan] = useState({ x: -60, y: -40 });
+  const [mapCenter, setMapCenter] = useState<[number, number]>([50.8, 29.3]);
+  const [mapViewportRevision, setMapViewportRevision] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   
@@ -69,7 +83,7 @@ export const MapTab: React.FC<MapTabProps> = ({
   const [selectedMarker, setSelectedMarker] = useState<MapMarker | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isRangefinderActive, setIsRangefinderActive] = useState(false);
-  const [rangeTarget, setRangeTarget] = useState<{ x: number; y: number; name?: string } | null>(null);
+  const [rangeTarget, setRangeTarget] = useState<MapMarker | null>(null);
 
   // Filters for Legend
   const [filters, setFilters] = useState({
@@ -93,8 +107,8 @@ export const MapTab: React.FC<MapTabProps> = ({
 
   // Filtered markers by category and active sector
   const visibleMarkers = useMemo(() => {
-    return filterMapMarkers(markers, filters, activeSector);
-  }, [markers, filters, activeSector]);
+    return filterMapMarkers(markers, filters);
+  }, [markers, filters]);
 
   // Search results
   const searchResults = useMemo(() => {
@@ -111,8 +125,179 @@ export const MapTab: React.FC<MapTabProps> = ({
   // Ambient radiation dosimeter calculation based on proximity to hazards
   const currentRadiation = useMemo(() => {
     if (selectedMarker?.radiationLevel) return selectedMarker.radiationLevel;
-    return activeSector === 'chornobyl-zone' ? 14.5 : activeSector === 'pripyat-city' ? 2.4 : 0.16;
+    if (activeSector === 'chornobyl-zone') return 14.5;
+    if (activeSector === 'pripyat-city') return 2.4;
+    if (activeSector === 'zhytomyr-osm') return 0.14;
+    return 0.16;
   }, [selectedMarker, activeSector]);
+
+  const selectMarker = (marker: MapMarker) => {
+    playMarkerPing();
+    setSelectedMarker(marker);
+    if (isRangefinderActive) {
+      setRangeTarget(marker);
+    }
+  };
+
+  const fitInitialWorldBounds = () => {
+    const map = osmMapRef.current;
+    if (!map || hasFittedInitialBoundsRef.current) return;
+    const size = map.getSize();
+    if (size.x === 0 || size.y === 0) return;
+
+    const points = markersRef.current.map(getMapMarkerCoordinates);
+    if (points.length < 2) return;
+
+    hasFittedInitialBoundsRef.current = true;
+    map.fitBounds(L.latLngBounds(points), { padding: [72, 72], maxZoom: 8 });
+  };
+
+  useEffect(() => {
+    onRadiationChange?.(currentRadiation);
+  }, [currentRadiation, onRadiationChange]);
+
+  useEffect(() => {
+    markerSelectRef.current = selectMarker;
+  });
+
+  useEffect(() => {
+    if (!osmContainerRef.current || osmMapRef.current) return;
+
+    const map = L.map(osmContainerRef.current, { center: [50.8, 29.3], zoom: 8, minZoom: 5, doubleClickZoom: false });
+    osmMapRef.current = map;
+    setZoom(map.getZoom());
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    map.on('dblclick', (event: L.LeafletMouseEvent) => addCustomMarkerRef.current(event.latlng.lat, event.latlng.lng));
+    map.on('zoomend', () => {
+      setZoom(map.getZoom());
+      setMapViewportRevision((revision) => revision + 1);
+    });
+    map.on('moveend', () => {
+      const center = map.getCenter();
+      setMapCenter([center.lat, center.lng]);
+      setMapViewportRevision((revision) => revision + 1);
+    });
+
+    const resizeObserver = new ResizeObserver(() => {
+      map.invalidateSize({ pan: false });
+      requestAnimationFrame(fitInitialWorldBounds);
+    });
+    resizeObserver.observe(osmContainerRef.current);
+    requestAnimationFrame(() => {
+      map.invalidateSize({ pan: false });
+      fitInitialWorldBounds();
+    });
+
+    return () => {
+      resizeObserver.disconnect();
+      map.remove();
+      osmMapRef.current = null;
+    };
+  }, []);
+
+  useEffect(fitInitialWorldBounds, [markers]);
+
+  useEffect(() => {
+    const map = osmMapRef.current;
+    if (!map) return;
+
+    const markerStyle: Record<MapMarker['type'], { color: string; glyph: string }> = {
+      'quest-main': { color: '#ff9d00', glyph: '<span>!</span>' },
+      'quest-side': { color: '#e2e8f0', glyph: '<span>?</span>' },
+      safezone: { color: '#38bdf8', glyph: '<svg viewBox="0 0 24 24"><path d="M12 2 20 5v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5l8-3Z"/><path d="M12 7v9M8.5 11.5h7"/></svg>' },
+      anomaly: { color: '#c084fc', glyph: '<svg viewBox="0 0 24 24"><path d="M12 2 22 21H2L12 2Z"/><circle cx="12" cy="14" r="1.5"/><path d="m12 7 .8 4"/></svg>' },
+      stash: { color: '#ffbe3b', glyph: '<svg viewBox="0 0 24 24"><path d="m3 7 9-4 9 4v11l-9 4-9-4V7Z"/><path d="m3 7 9 4 9-4M12 11v11M8 5l9 4"/></svg>' },
+      trader: { color: '#4ade80', glyph: '<span>₴</span>' },
+      technician: { color: '#67e8f9', glyph: '<svg viewBox="0 0 24 24"><path d="M14 7a5 5 0 0 0-6.5 6.5L3 18l3 3 4.5-4.5A5 5 0 0 0 17 10l-3 3-3-3 3-3Z"/><path d="m14 7 3-3 4 4-3 3"/></svg>' },
+      landmark: { color: '#fbbf24', glyph: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 1v4m0 14v4M1 12h4m14 0h4"/></svg>' },
+      custom: { color: '#fb923c', glyph: '<svg viewBox="0 0 24 24"><path d="M12 22s8-7.5 8-13a8 8 0 1 0-16 0c0 5.5 8 13 8 13Z"/><circle cx="12" cy="9" r="2.5"/></svg>' }
+    };
+    const markerLayer = L.layerGroup().addTo(map);
+    const zoomLevel = map.getZoom();
+    const clusters = new Map<string, MapMarker[]>();
+    visibleMarkers.forEach((marker) => {
+      const [lat, lon] = getMapMarkerCoordinates(marker);
+      const pixel = map.project([lat, lon], zoomLevel);
+      const clusterKey = `${Math.floor(pixel.x / 44)}:${Math.floor(pixel.y / 44)}`;
+      const cluster = clusters.get(clusterKey) ?? [];
+      cluster.push(marker);
+      clusters.set(clusterKey, cluster);
+    });
+
+    clusters.forEach((cluster) => {
+      if (zoomLevel < 8 && cluster.length > 1) {
+        const points = cluster.map((marker) => getMapMarkerCoordinates(marker));
+        const center = L.latLngBounds(points).getCenter();
+        const clusterIcon = L.divIcon({
+          className: 'pda-map-cluster-wrap',
+          html: `<span class="pda-map-cluster">${cluster.length}</span>`,
+          iconSize: [38, 38],
+          iconAnchor: [19, 19]
+        });
+        L.marker(center, { icon: clusterIcon, title: `${cluster.length} PDA locations` })
+          .on('click', () => map.fitBounds(L.latLngBounds(points), { padding: [48, 48], maxZoom: zoomLevel + 3 }))
+          .addTo(markerLayer);
+        return;
+      }
+
+      cluster.forEach((marker) => {
+        const { color, glyph } = markerStyle[marker.type];
+        const [lat, lon] = getMapMarkerCoordinates(marker);
+        const icon = L.divIcon({
+          className: `zhytomyr-osm-marker${selectedMarker?.id === marker.id ? ' is-selected' : ''}`,
+          html: `<span class="pda-map-marker pda-map-marker--${marker.type}" style="--marker-color:${color}">${glyph}</span>`,
+          iconSize: [32, 32],
+          iconAnchor: [16, 16]
+        });
+        L.marker([lat, lon], {
+          icon,
+          title: `${lang === 'uk' ? marker.nameUk : marker.nameEn}${marker.regionUk ? ` · ${lang === 'uk' ? marker.regionUk : marker.regionEn}` : ''}`,
+          alt: `${lang === 'uk' ? marker.nameUk : marker.nameEn}${marker.regionUk ? ` · ${lang === 'uk' ? marker.regionUk : marker.regionEn}` : ''}`
+        }).on('click', () => markerSelectRef.current(marker)).addTo(markerLayer);
+      });
+    });
+
+    return () => {
+      markerLayer.remove();
+    };
+  }, [visibleMarkers, lang, selectedMarker?.id, mapViewportRevision]);
+
+  const addCustomMapMarker = (lat: number, lon: number) => {
+    const marker: MapMarker = {
+      id: `custom-${Date.now()}`,
+      sector: 'zhytomyr-osm',
+      nameUk: `Точка Скіфа #${Math.floor(Math.random() * 90 + 10)}`,
+      nameEn: `Skif Waypoint #${Math.floor(Math.random() * 90 + 10)}`,
+      type: 'custom',
+      x: 50,
+      y: 50,
+      geoLat: lat,
+      geoLon: lon,
+      descriptionUk: 'Власноруч встановлена користувацька навігаційна точка.',
+      descriptionEn: 'Manually placed custom tactical waypoint.'
+    };
+    onAddCustomMarker(marker);
+    setSelectedMarker(marker);
+  };
+
+  useEffect(() => {
+    addCustomMarkerRef.current = addCustomMapMarker;
+  });
+
+  const handleShuffleWorld = () => {
+    playPdaClick();
+    const shuffledMarkers = randomizeMapObjectPositions(markers);
+    onUpdateMarkers?.(shuffledMarkers);
+    setSelectedMarker(null);
+    const points = shuffledMarkers.map(getMapMarkerCoordinates);
+    if (points.length > 1) {
+      osmMapRef.current?.fitBounds(L.latLngBounds(points), { padding: [72, 72], maxZoom: 8 });
+    }
+  };
 
   // Trigger occasional Geiger crackle on high radiation
   useEffect(() => {
@@ -127,9 +312,8 @@ export const MapTab: React.FC<MapTabProps> = ({
   // Center on player
   const centerOnPlayer = () => {
     playMarkerPing();
-    setZoom(1.6);
-    setPan({ x: -100, y: -70 });
     setSelectedMarker(playerMarker);
+    osmMapRef.current?.setView(getMapMarkerCoordinates(playerMarker), 14);
   };
 
   useEffect(() => {
@@ -197,19 +381,16 @@ export const MapTab: React.FC<MapTabProps> = ({
 
   const handleMarkerClick = (m: MapMarker, e: React.MouseEvent) => {
     e.stopPropagation();
-    playMarkerPing();
-    setSelectedMarker(m);
-    if (isRangefinderActive) {
-      setRangeTarget({ x: m.x, y: m.y, name: lang === 'uk' ? m.nameUk : m.nameEn });
-    }
+    selectMarker(m);
   };
 
   // Move Skif position to target
   const handleMoveSkifHere = (m: MapMarker) => {
     playDetectorBeep(1800);
+    const [geoLat, geoLon] = getMapMarkerCoordinates(m);
     const updatedMarkers = markers.map(item => {
       if (item.id === 'poi-skif') {
-        return { ...item, x: m.x, y: m.y, sector: activeSector };
+        return { ...item, x: m.x, y: m.y, sector: m.sector, geoLat, geoLon };
       }
       return item;
     });
@@ -231,87 +412,47 @@ export const MapTab: React.FC<MapTabProps> = ({
 
   // Focus on searched location
   const handleSelectSearchResult = (m: MapMarker) => {
-    if (m.sector) {
-      setActiveSector(m.sector);
-    }
     setSearchQuery('');
     setSelectedMarker(m);
     playMarkerPing();
-    setZoom(2.0);
-    setPan({
-      x: -((m.x / 100) * 800 - 300),
-      y: -((m.y / 100) * 600 - 200)
-    });
+    osmMapRef.current?.setView(getMapMarkerCoordinates(m), 14);
   };
 
   // Tactical Rangefinder metric calculation
   const tacticalDistance = useMemo(() => {
     const target = rangeTarget || selectedMarker;
     if (!target) return null;
-    const scale = activeSector === 'pripyat-city' ? 2200 : activeSector === 'chornobyl-zone' ? 14000 : 4500;
-    return calculateTacticalDistance(
-      { x: playerMarker.x, y: playerMarker.y },
-      { x: target.x, y: target.y },
-      scale
-    );
+    const [playerLat, playerLon] = getMapMarkerCoordinates(playerMarker);
+    const [targetLat, targetLon] = getMapMarkerCoordinates(target);
+    const radians = Math.PI / 180;
+    const dLat = (targetLat - playerLat) * radians;
+    const dLon = (targetLon - playerLon) * radians;
+    const lat1 = playerLat * radians;
+    const lat2 = targetLat * radians;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+    const distanceMeters = Math.round(6_371_000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+    return {
+      distanceMeters,
+      travelTimeMinutes: Math.max(1, Math.round(distanceMeters / (1.4 * 60)))
+    };
   }, [rangeTarget, selectedMarker, playerMarker, activeSector]);
 
   return (
     <div className="relative w-full h-full flex flex-col overflow-hidden bg-[#0a0c10] select-none text-[#d0d4da]">
       {/* Top Tactical Map Control Bar */}
       <div className="h-12 border-b border-[#242b36] bg-[#0e1117] flex items-center justify-between px-4 z-30 shrink-0">
-        {/* Sector Switcher (Чорнобильська Зона / Прип'ять / Мала Зона) */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-mono uppercase text-[#737e90] font-bold mr-1 hidden sm:inline">
-            {lang === 'uk' ? 'Сектор:' : 'Sector:'}
+        <div className="flex min-w-0 items-center gap-2">
+          <MapPin className="h-4 w-4 shrink-0 text-[#ff9d00]" />
+          <span className="hidden text-[10px] font-mono font-bold uppercase tracking-wide text-[#c5cdd9] sm:inline">
+            {lang === 'uk' ? 'УКРАЇНА // 27 РЕГІОНІВ' : 'UKRAINE // 27 REGIONS'}
           </span>
-
           <button
-            onClick={() => {
-              playPdaClick();
-              setActiveSector('chornobyl-zone');
-              setSelectedMarker(null);
-            }}
-            className={`px-2.5 py-1 rounded text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeSector === 'chornobyl-zone'
-                ? 'bg-[#ff9d00] text-black shadow-md'
-                : 'bg-[#151922] text-[#8e98a8] hover:text-white border border-[#2b3342]'
-            }`}
+            onClick={handleShuffleWorld}
+            title={lang === 'uk' ? 'Випадково розмістити аномалії, схованки й завдання' : 'Randomize anomalies, stashes, and quests'}
+            className="flex shrink-0 items-center gap-1.5 rounded border border-[#654b22] bg-[#211a10] px-2 py-1 text-[10px] font-mono font-bold text-[#ffbe3b] hover:border-[#ff9d00] hover:bg-[#30220e] cursor-pointer"
           >
-            <Radiation className="w-3.5 h-3.5" />
-            <span>{lang === 'uk' ? 'Зона ЧАЕС' : 'Chornobyl Zone'}</span>
-          </button>
-
-          <button
-            onClick={() => {
-              playPdaClick();
-              setActiveSector('pripyat-city');
-              setSelectedMarker(null);
-            }}
-            className={`px-2.5 py-1 rounded text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeSector === 'pripyat-city'
-                ? 'bg-[#ff9d00] text-black shadow-md'
-                : 'bg-[#151922] text-[#8e98a8] hover:text-white border border-[#2b3342]'
-            }`}
-          >
-            <Radio className="w-3.5 h-3.5" />
-            <span>{lang === 'uk' ? 'м. Прип\'ять (Офлайн)' : 'Pripyat City'}</span>
-          </button>
-
-          <button
-            onClick={() => {
-              playPdaClick();
-              setActiveSector('lesser-zone');
-              setSelectedMarker(null);
-            }}
-            className={`px-2.5 py-1 rounded text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeSector === 'lesser-zone'
-                ? 'bg-[#ff9d00] text-black shadow-md'
-                : 'bg-[#151922] text-[#8e98a8] hover:text-white border border-[#2b3342]'
-            }`}
-          >
-            <Navigation className="w-3.5 h-3.5" />
-            <span>{lang === 'uk' ? 'Мала Зона' : 'Lesser Zone'}</span>
+            <Shuffle className="h-3.5 w-3.5" />
+            <span>{lang === 'uk' ? 'НОВИЙ РОЗКИД' : 'RESHUFFLE'}</span>
           </button>
         </div>
 
@@ -418,7 +559,7 @@ export const MapTab: React.FC<MapTabProps> = ({
               playPdaClick();
               setIsRangefinderActive(!isRangefinderActive);
               if (!isRangefinderActive && selectedMarker) {
-                setRangeTarget({ x: selectedMarker.x, y: selectedMarker.y });
+                setRangeTarget(selectedMarker);
               }
             }}
             title={lang === 'uk' ? 'Тактичний далекомір' : 'Tactical Rangefinder'}
@@ -436,16 +577,24 @@ export const MapTab: React.FC<MapTabProps> = ({
       {/* Main Interactive Map Surface */}
       <div 
         ref={containerRef}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-        onWheel={handleWheel}
-        onDoubleClick={handleDoubleClick}
+        onMouseDown={activeSector === 'zhytomyr-osm' ? undefined : handleMouseDown}
+        onMouseMove={activeSector === 'zhytomyr-osm' ? undefined : handleMouseMove}
+        onMouseUp={activeSector === 'zhytomyr-osm' ? undefined : handleMouseUp}
+        onMouseLeave={activeSector === 'zhytomyr-osm' ? undefined : handleMouseUp}
+        onWheel={activeSector === 'zhytomyr-osm' ? undefined : handleWheel}
+        onDoubleClick={activeSector === 'zhytomyr-osm' ? undefined : handleDoubleClick}
         className="relative flex-1 w-full h-full overflow-hidden bg-[#080a0e] cursor-grab active:cursor-grabbing select-none"
       >
+        {activeSector === 'zhytomyr-osm' && (
+          <>
+            <div ref={osmContainerRef} className="absolute inset-0 z-10" />
+            <div className="absolute bottom-3 right-3 z-[500] rounded border border-[#475569] bg-[#0b0f14]/90 px-2.5 py-1.5 text-[10px] font-mono text-[#cbd5e1]">
+              {lang === 'uk' ? 'OSM · артефакти й аномалії вигадані для гри' : 'OSM · artifacts and anomalies are fictional game content'}
+            </div>
+          </>
+        )}
         {/* Map Canvas Layer */}
-        <div 
+        {activeSector !== 'zhytomyr-osm' && <div
           className="absolute inset-0 origin-center transition-transform duration-75"
           style={{
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
@@ -779,7 +928,7 @@ export const MapTab: React.FC<MapTabProps> = ({
               </div>
             );
           })}
-        </div>
+        </div>}
 
         {/* Top-Left Tactical Heading & Geo-Coords */}
         <div className="absolute top-3 left-3 z-20 flex items-center gap-3 bg-[#0d1017]/90 backdrop-blur-xs border border-[#2a3445] rounded px-3 py-1.5 text-xs font-mono text-[#c5cdd9] shadow-xl">
@@ -787,9 +936,7 @@ export const MapTab: React.FC<MapTabProps> = ({
           <span>SE 142°</span>
           <span className="text-[#455062]">|</span>
           <span className="text-[#9ba4b5]">
-            {activeSector === 'chornobyl-zone' && 'LAT 51.3896 // LON 30.0991'}
-            {activeSector === 'pripyat-city' && 'LAT 51.4069 // LON 30.0556'}
-            {activeSector === 'lesser-zone' && 'LAT 51.2721 // LON 30.2219'}
+            {`LAT ${mapCenter[0].toFixed(4)} // LON ${mapCenter[1].toFixed(4)}`}
           </span>
           <span className="text-[#455062]">|</span>
           <span className="text-emerald-400 font-bold">GPS LOCK (Z-OS)</span>
@@ -800,7 +947,7 @@ export const MapTab: React.FC<MapTabProps> = ({
           <button
             onClick={() => {
               playPdaClick();
-              setZoom((z) => Math.min(3.5, +(z + 0.3).toFixed(1)));
+              osmMapRef.current?.zoomIn();
             }}
             title={lang === 'uk' ? 'Збільшити масштаб (+)' : 'Zoom in (+)'}
             className="w-7 h-7 flex items-center justify-center text-[#c5cdd9] hover:text-[#ff9d00] hover:bg-[#1a212e] rounded cursor-pointer transition-colors"
@@ -815,7 +962,7 @@ export const MapTab: React.FC<MapTabProps> = ({
           <button
             onClick={() => {
               playPdaClick();
-              setZoom((z) => Math.max(0.7, +(z - 0.3).toFixed(1)));
+              osmMapRef.current?.zoomOut();
             }}
             title={lang === 'uk' ? 'Зменшити масштаб (-)' : 'Zoom out (-)'}
             className="w-7 h-7 flex items-center justify-center text-[#c5cdd9] hover:text-[#ff9d00] hover:bg-[#1a212e] rounded cursor-pointer transition-colors"
@@ -882,7 +1029,7 @@ export const MapTab: React.FC<MapTabProps> = ({
                 <div className="text-[10px] font-mono uppercase tracking-wider text-[#ff9d00] font-bold mb-0.5 flex items-center gap-1.5">
                   <span>{selectedMarker.type.toUpperCase()}</span>
                   {selectedMarker.sector && (
-                    <span className="text-[#727e91]">· {selectedMarker.sector}</span>
+                    <span className="text-[#727e91]">· {selectedMarker.regionUk ? (lang === 'uk' ? selectedMarker.regionUk : selectedMarker.regionEn) : selectedMarker.sector}</span>
                   )}
                 </div>
                 <h4 className="font-bold text-sm text-white">

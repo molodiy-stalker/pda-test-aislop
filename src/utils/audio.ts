@@ -26,67 +26,12 @@ export function getMuteState(): boolean {
   return isMuted;
 }
 
-/**
- * Tactical mechanical click on button/item press
- */
 export function playPdaClick() {
-  if (isMuted) return;
-  const ctx = getAudioContext();
-  if (!ctx) return;
-
-  const now = ctx.currentTime;
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-
-  osc.type = 'triangle';
-  osc.frequency.setValueAtTime(850, now);
-  osc.frequency.exponentialRampToValueAtTime(140, now + 0.035);
-
-  gain.gain.setValueAtTime(0.18, now);
-  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.035);
-
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-
-  osc.start(now);
-  osc.stop(now + 0.04);
+  getAudioContext();
 }
 
-/**
- * High-tech PDA tab switch chime (Q / E keys)
- */
 export function playPdaTabSwitch() {
-  if (isMuted) return;
-  const ctx = getAudioContext();
-  if (!ctx) return;
-
-  const now = ctx.currentTime;
-  
-  // Dual tone chirp
-  const osc1 = ctx.createOscillator();
-  const osc2 = ctx.createOscillator();
-  const gain = ctx.createGain();
-
-  osc1.type = 'sine';
-  osc2.type = 'square';
-
-  osc1.frequency.setValueAtTime(1200, now);
-  osc1.frequency.exponentialRampToValueAtTime(1800, now + 0.06);
-
-  osc2.frequency.setValueAtTime(600, now);
-  osc2.frequency.exponentialRampToValueAtTime(900, now + 0.06);
-
-  gain.gain.setValueAtTime(0.12, now);
-  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
-
-  osc1.connect(gain);
-  osc2.connect(gain);
-  gain.connect(ctx.destination);
-
-  osc1.start(now);
-  osc2.start(now);
-  osc1.stop(now + 0.07);
-  osc2.stop(now + 0.07);
+  getAudioContext();
 }
 
 /**
@@ -510,55 +455,11 @@ export function playMissionFailedSting() {
  * Tactical radiation threshold alarm siren (urgent alternating frequencies)
  */
 export function playRadiationAlarm() {
-  if (isMuted) return;
-  const ctx = getAudioContext();
-  if (!ctx) return;
-
-  const now = ctx.currentTime;
-  
-  // High-pitch dual alternating chirp
-  [0, 0.12, 0.24, 0.36].forEach((offset, idx) => {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(idx % 2 === 0 ? 1750 : 2200, now + offset);
-
-    gain.gain.setValueAtTime(0.25, now + offset);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.09);
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.start(now + offset);
-    osc.stop(now + offset + 0.09);
-  });
+  playGeigerCrackle();
 }
 
-/**
- * Mechanical keyboard key click for Linux terminal
- */
 export function playKeyboardClack() {
-  if (isMuted) return;
-  const ctx = getAudioContext();
-  if (!ctx) return;
-
-  const now = ctx.currentTime;
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-
-  osc.type = 'triangle';
-  osc.frequency.setValueAtTime(700 + Math.random() * 200, now);
-  osc.frequency.exponentialRampToValueAtTime(100, now + 0.02);
-
-  gain.gain.setValueAtTime(0.12, now);
-  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.025);
-
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-
-  osc.start(now);
-  osc.stop(now + 0.025);
+  getAudioContext();
 }
 
 /**
@@ -589,4 +490,3 @@ export function playLoginChime() {
     osc.stop(now + idx * 0.08 + 0.3);
   });
 }
-

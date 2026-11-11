@@ -170,7 +170,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 </span>
                 <span className="text-xs font-mono text-emerald-400 font-bold flex items-center gap-1">
                   <UserCheck className="w-3.5 h-3.5" />
-                  {lang === 'uk' ? 'АВТОРИЗОВАНО' : 'AUTHORIZED'}
+                  {profile.isLoggedIn
+                    ? (lang === 'uk' ? 'ЗАРЕЄСТРОВАНО' : 'REGISTERED')
+                    : (lang === 'uk' ? 'НОВИЙ СТАЛКЕР' : 'NEW STALKER')}
                 </span>
               </div>
               <input
@@ -178,6 +180,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 value={callsign}
                 onChange={(e) => setCallsign(e.target.value)}
                 placeholder="Введіть позивний..."
+                maxLength={24}
+                required
                 className="mt-1 w-full bg-[#0d1017] border border-[#3b475d] rounded px-3 py-1.5 text-base font-bold text-white focus:outline-hidden focus:border-[#ff9d00]"
               />
             </div>
@@ -300,7 +304,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
             <button
               onClick={handleSave}
-              className="px-6 py-2 rounded bg-[#ff9d00] hover:bg-[#ffbe3b] text-black font-bold text-xs uppercase tracking-wider shadow-lg transition-transform active:scale-95 cursor-pointer flex items-center gap-1.5"
+              disabled={!callsign.trim()}
+              className="px-6 py-2 rounded bg-[#ff9d00] hover:bg-[#ffbe3b] disabled:opacity-40 disabled:cursor-not-allowed text-black font-bold text-xs uppercase tracking-wider shadow-lg transition-transform active:scale-95 cursor-pointer flex items-center gap-1.5"
             >
               <Save className="w-4 h-4 fill-black" />
               <span>{isSavedNotice ? (lang === 'uk' ? 'Збережено!' : 'Saved!') : (lang === 'uk' ? 'Зберегти профіль' : 'Save Profile')}</span>

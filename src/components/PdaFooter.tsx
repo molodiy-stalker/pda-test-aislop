@@ -10,6 +10,8 @@ interface PdaFooterProps {
   onCenterPlayer?: () => void;
   onToggleLegend?: () => void;
   isLegendOpen?: boolean;
+  currentRadiation: number;
+  isAntiradActive: boolean;
 }
 
 export const PdaFooter: React.FC<PdaFooterProps> = ({
@@ -18,14 +20,12 @@ export const PdaFooter: React.FC<PdaFooterProps> = ({
   onExit,
   onCenterPlayer,
   onToggleLegend,
-  isLegendOpen
+  isLegendOpen,
+  currentRadiation,
+  isAntiradActive
 }) => {
-  const [radLevel, setRadLevel] = React.useState(0.14);
-
   const handleRadClick = () => {
     playGeigerCrackle();
-    setRadLevel((prev) => +(prev + 0.05).toFixed(2));
-    setTimeout(() => setRadLevel(0.14), 2000);
   };
 
   return (
@@ -160,13 +160,14 @@ export const PdaFooter: React.FC<PdaFooterProps> = ({
       {/* Right: Geiger Sensor Widget */}
       <button
         onClick={handleRadClick}
-        title="Дозиметр радіації (натисніть для перевірки)"
+        title={lang === 'uk' ? 'Ігровий показник радіації — не вимірювання датчика' : 'Simulated radiation level — not a sensor reading'}
         className="flex items-center gap-2 px-2 py-0.5 rounded bg-[#181c22] border border-[#2d3440] hover:border-[#ff9d00] transition-colors cursor-pointer"
       >
         <Radiation className="w-3.5 h-3.5 text-[#ff9d00] animate-spin" style={{ animationDuration: '6s' }} />
         <span className="text-[11px] font-semibold text-white">
-          {radLevel} <span className="text-[9px] text-[#8a92a0]">μSv/h</span>
+          {currentRadiation.toFixed(2)} <span className="text-[9px] text-[#8a92a0]">μSv/h</span>
         </span>
+        {isAntiradActive && <span className="text-[9px] font-bold text-emerald-400">{lang === 'uk' ? 'ЗАХИСТ' : 'SHIELD'}</span>}
       </button>
     </footer>
   );

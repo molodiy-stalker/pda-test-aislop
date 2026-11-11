@@ -64,3 +64,91 @@
   background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
   background-size: 24px 24px;
 }
+
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+  background: #0d1117;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.zhytomyr-osm-marker {
+  background: transparent;
+  border: 0;
+}
+
+.pda-map-marker {
+  box-sizing: border-box;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  color: var(--marker-color);
+  background: rgba(9, 13, 18, 0.94);
+  border: 1px solid var(--marker-color);
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  filter: drop-shadow(0 0 5px var(--marker-color));
+  transition: filter 120ms ease, transform 120ms ease;
+}
+
+.pda-map-marker svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.pda-map-marker > span {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.pda-map-marker--quest-main {
+  background: rgba(48, 29, 5, 0.96);
+}
+
+.pda-map-marker--quest-main > span {
+  font-size: 17px;
+}
+
+.pda-map-marker--stash {
+  background: rgba(37, 29, 8, 0.96);
+}
+
+.pda-map-marker--safezone {
+  background: rgba(7, 27, 38, 0.96);
+}
+
+.pda-map-marker--anomaly {
+  background: rgba(29, 13, 43, 0.96);
+}
+
+.zhytomyr-osm-marker.is-selected .pda-map-marker,
+.zhytomyr-osm-marker:hover .pda-map-marker {
+  transform: scale(1.2);
+  filter: drop-shadow(0 0 9px var(--marker-color));
+}
+
+.pda-map-cluster-wrap {
+  border: 0;
+  background: transparent;
+}
+
+.pda-map-cluster {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 2px solid #ffbe3b;
+  border-radius: 50%;
+  background: rgba(15, 20, 27, 0.94);
+  box-shadow: 0 0 0 4px rgba(255, 157, 0, 0.2), 0 0 16px rgba(255, 157, 0, 0.55);
+  color: #ffbe3b;
+  font: 800 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-shadow: 0 1px 3px #000;
+}

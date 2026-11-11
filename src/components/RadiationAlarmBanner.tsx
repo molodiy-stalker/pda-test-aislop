@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { RadiationAlarmSettings, Language } from '../types/pda';
-import { playRadiationAlarm, playDetectorBeep } from '../utils/audio';
+import { playPdaClick } from '../utils/audio';
 import { AlertTriangle, Radiation, ShieldCheck, Sliders, X } from 'lucide-react';
 
 interface RadiationAlarmBannerProps {
@@ -21,17 +21,6 @@ export const RadiationAlarmBanner: React.FC<RadiationAlarmBannerProps> = ({
   const [isDismissed, setIsDismissed] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const isAlarmTriggered = settings.enabled && currentRadiation > settings.threshold;
-
-  // Sound alarm whenever radiation spikes above threshold
-  useEffect(() => {
-    if (isAlarmTriggered && !isDismissed && settings.soundEnabled) {
-      playRadiationAlarm();
-      const interval = setInterval(() => {
-        playRadiationAlarm();
-      }, 3500);
-      return () => clearInterval(interval);
-    }
-  }, [isAlarmTriggered, isDismissed, settings.soundEnabled]);
 
   // Reset dismissal if radiation drops below threshold and spikes again
   useEffect(() => {
@@ -71,12 +60,15 @@ export const RadiationAlarmBanner: React.FC<RadiationAlarmBannerProps> = ({
                 ({lang === 'uk' ? 'поріг' : 'limit'}: {settings.threshold} μSv/h)
               </span>
             </div>
+            <div className="mt-1 text-[10px] font-mono text-red-200/80">
+              {lang === 'uk' ? 'Ігрова симуляція — не показання реального дозиметра.' : 'Game simulation — not a real dosimeter reading.'}
+            </div>
           </div>
 
           {/* Quick Action: Take Antirad */}
           <button
             onClick={() => {
-              playDetectorBeep(1200);
+              playPdaClick();
               onApplyAntirad();
               setIsDismissed(true);
             }}
@@ -107,6 +99,15 @@ export const RadiationAlarmBanner: React.FC<RadiationAlarmBannerProps> = ({
         {/* Expandable Alert Calibration Settings */}
         {isSettingsOpen && (
           <div className="pt-2.5 mt-1 border-t border-red-900/60 flex items-center justify-between text-xs font-mono text-[#cbd5e1] gap-4">
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={settings.enabled}
+                onChange={(e) => onUpdateSettings({ ...settings, enabled: e.target.checked })}
+                className="accent-red-500"
+              />
+              <span>{lang === 'uk' ? 'Тривога' : 'Alarm'}</span>
+            </label>
             <div className="flex items-center gap-2">
               <span>{lang === 'uk' ? 'Поріг спрацювання:' : 'Alarm Threshold:'}</span>
               <input

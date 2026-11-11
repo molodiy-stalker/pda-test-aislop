@@ -54,6 +54,9 @@ export interface MapMarker {
   isLooted?: boolean;
   geoLat?: number;
   geoLon?: number;
+  regionId?: string;
+  regionUk?: string;
+  regionEn?: string;
 }
 
 export interface QuestObjective {

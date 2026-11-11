@@ -6,9 +6,12 @@ import { Power, Shield, Radio, Radiation } from 'lucide-react';
 interface PdaStandbyProps {
   onWake: () => void;
   lang: Language;
+  callsign: string;
+  idNumber: string;
+  currentRadiation: number;
 }
 
-export const PdaStandby: React.FC<PdaStandbyProps> = ({ onWake, lang }) => {
+export const PdaStandby: React.FC<PdaStandbyProps> = ({ onWake, lang, callsign, idNumber, currentRadiation }) => {
   const [clock, setClock] = useState('01:00');
 
   useEffect(() => {
@@ -63,9 +66,9 @@ export const PdaStandby: React.FC<PdaStandbyProps> = ({ onWake, lang }) => {
       <div className="flex flex-col items-center justify-center text-center z-10 space-y-4">
         {/* Callsign Badge */}
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#12161f] border border-[#2b3342] text-[#ff9d00] text-xs font-mono tracking-widest uppercase">
-          <span>{lang === 'uk' ? 'СТАЛКЕР: СКІФ' : 'STALKER: SKIF'}</span>
+          <span>{lang === 'uk' ? `СТАЛКЕР: ${callsign}` : `STALKER: ${callsign}`}</span>
           <span>·</span>
-          <span>ID: 849-012</span>
+          <span>ID: {idNumber}</span>
         </div>
 
         {/* Large Digital Clock */}
@@ -80,7 +83,7 @@ export const PdaStandby: React.FC<PdaStandbyProps> = ({ onWake, lang }) => {
         {/* Radiation Widget */}
         <div className="flex items-center gap-2 px-4 py-1.5 rounded bg-[#10141b] border border-[#ff9d00]/40 text-[#ffbe3b] text-xs font-mono">
           <Radiation className="w-4 h-4 animate-spin" style={{ animationDuration: '8s' }} />
-          <span>RAD: 0.14 μSv/h (NORMAL)</span>
+          <span>RAD: {currentRadiation.toFixed(2)} μSv/h</span>
         </div>
       </div>
 

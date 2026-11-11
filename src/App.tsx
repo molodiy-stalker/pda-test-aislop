@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { PdaTab, Language, MapMarker, Quest, NoteItem, WeaponGearItem, TutorialTopic } from './types/pda';
+import { PdaTab, Language, MapMarker, Quest, NoteItem, WeaponGearItem, TutorialTopic, UserProfile, RadiationAlarmSettings } from './types/pda';
 import { 
+  DEFAULT_RADIATION_ALARM,
+  DEFAULT_USER_PROFILE,
   INITIAL_MAP_MARKERS, 
   INITIAL_QUESTS, 
   INITIAL_NOTES, 
@@ -17,12 +19,18 @@ import { TutorialTab } from './components/tabs/TutorialTab';
 import { PdaStandby } from './components/PdaStandby';
 import { QuestNotificationBanner, QuestNotification } from './components/QuestNotificationBanner';
 import { YouTubeAudioPlayer } from './components/YouTubeAudioPlayer';
+import { ProfileModal } from './components/ProfileModal';
+import { RadiationAlarmBanner } from './components/RadiationAlarmBanner';
+import { PdaDesktop } from './components/desktop/PdaDesktop';
+import { loadFromStorage, saveToStorage } from './utils/persistence';
+import { ensureUkraineWorldMarkers, randomizeMapObjectPositions } from './utils/mapWorld';
 import { 
   playPdaTabSwitch, 
   playPdaClick, 
   playMissionAcceptedSting, 
   playMissionAccomplishedSting, 
-  playMissionFailedSting 
+  playMissionFailedSting,
+  playGeigerCrackle
 } from './utils/audio';
 import { 
   countUnreadNotes, 
@@ -35,14 +43,25 @@ import {
 export default function App() {
   const [currentTab, setCurrentTab] = useState<PdaTab>('journal'); // Defaults to Journal to immediately showcase the new quest
   const [isStandby, setIsStandby] = useState<boolean>(false);
-  const [lang, setLang] = useState<Language>('uk');
+  const [isDesktopMode, setIsDesktopMode] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [lang, setLang] = useState<Language>(() => loadFromStorage<Language>('pda-lang', 'uk'));
+  const [profile, setProfile] = useState<UserProfile>(() => loadFromStorage('pda-profile', DEFAULT_USER_PROFILE));
+  const [radiationSettings, setRadiationSettings] = useState<RadiationAlarmSettings>(() => loadFromStorage('pda-radiation-settings', DEFAULT_RADIATION_ALARM));
+  const [currentRadiation, setCurrentRadiation] = useState(0.14);
+  const [isAntiradActive, setIsAntiradActive] = useState(false);
 
   // Application Data States
-  const [markers, setMarkers] = useState<MapMarker[]>(INITIAL_MAP_MARKERS);
-  const [quests, setQuests] = useState<Quest[]>(INITIAL_QUESTS);
-  const [notes, setNotes] = useState<NoteItem[]>(INITIAL_NOTES);
-  const [weapons, setWeapons] = useState<WeaponGearItem[]>(INITIAL_WEAPONS);
-  const [tutorials, setTutorials] = useState<TutorialTopic[]>(INITIAL_TUTORIALS);
+  const [markers, setMarkers] = useState<MapMarker[]>(() => {
+    const storedMarkers = loadFromStorage<MapMarker[] | null>('pda-markers', null);
+    const layoutVersion = loadFromStorage<number>('pda-map-layout-version', 0);
+    const initialMarkers = storedMarkers ?? INITIAL_MAP_MARKERS;
+    return layoutVersion >= 4 ? initialMarkers : ensureUkraineWorldMarkers(initialMarkers);
+  });
+  const [quests, setQuests] = useState<Quest[]>(() => loadFromStorage('pda-quests', INITIAL_QUESTS));
+  const [notes, setNotes] = useState<NoteItem[]>(() => loadFromStorage('pda-notes', INITIAL_NOTES));
+  const [weapons, setWeapons] = useState<WeaponGearItem[]>(() => loadFromStorage('pda-weapons', INITIAL_WEAPONS));
+  const [tutorials, setTutorials] = useState<TutorialTopic[]>(() => loadFromStorage('pda-tutorials', INITIAL_TUTORIALS));
 
   // Map Utility States
   const [isLegendOpen, setIsLegendOpen] = useState(false);
@@ -53,6 +72,24 @@ export default function App() {
   const [youtubeVideoId, setYoutubeVideoId] = useState<string | null>(null);
   const [audioTriggerKey, setAudioTriggerKey] = useState<number>(0);
   const [youtubeLabel, setYoutubeLabel] = useState<string>('S.T.A.L.K.E.R. 2 SFX');
+
+  useEffect(() => saveToStorage('pda-lang', lang), [lang]);
+  useEffect(() => saveToStorage('pda-profile', profile), [profile]);
+  useEffect(() => saveToStorage('pda-radiation-settings', radiationSettings), [radiationSettings]);
+  useEffect(() => saveToStorage('pda-markers', markers), [markers]);
+  useEffect(() => saveToStorage('pda-map-layout-version', 4), []);
+  useEffect(() => saveToStorage('pda-quests', quests), [quests]);
+  useEffect(() => saveToStorage('pda-notes', notes), [notes]);
+  useEffect(() => saveToStorage('pda-weapons', weapons), [weapons]);
+  useEffect(() => saveToStorage('pda-tutorials', tutorials), [tutorials]);
+
+  useEffect(() => {
+    if (!radiationSettings.soundEnabled) return;
+
+    const intervalMs = Math.max(180, 5000 / (1 + currentRadiation * 0.25));
+    const interval = window.setInterval(playGeigerCrackle, intervalMs);
+    return () => window.clearInterval(interval);
+  }, [currentRadiation, radiationSettings.soundEnabled]);
 
   // Global hotkeys (Q, E, M, J, N, U, T, Esc, V, L)
   useEffect(() => {
@@ -203,8 +240,14 @@ export default function App() {
     setActiveNotification(null);
   };
 
+  const handleUseAntirad = () => {
+    setIsAntiradActive(true);
+    window.setTimeout(() => setIsAntiradActive(false), 30_000);
+  };
+
   const unreadNotes = countUnreadNotes(notes);
   const unreadTutorials = tutorials.filter(t => t.isUnread).length;
+  const isRegistrationRequired = !profile.isLoggedIn;
 
   return (
     <div className="relative w-screen h-screen flex items-center justify-center bg-[#07080a] p-1 sm:p-3 overflow-hidden select-none">
@@ -247,7 +290,21 @@ export default function App() {
 
           {/* Standby Mode or Active PDA Operating System */}
           {isStandby ? (
-            <PdaStandby onWake={() => setIsStandby(false)} lang={lang} />
+            <PdaStandby
+              onWake={() => setIsStandby(false)}
+              lang={lang}
+              callsign={profile.callsign}
+              idNumber={profile.idNumber}
+              currentRadiation={currentRadiation}
+            />
+          ) : isDesktopMode ? (
+            <PdaDesktop
+              profile={profile}
+              currentRadiation={currentRadiation}
+              isAntiradActive={isAntiradActive}
+              lang={lang}
+              onReturnToPda={() => setIsDesktopMode(false)}
+            />
           ) : (
             <>
               {/* Header */}
@@ -258,6 +315,17 @@ export default function App() {
                 onToggleLang={() => setLang(l => l === 'uk' ? 'en' : 'uk')}
                 unreadNotesCount={unreadNotes}
                 unreadTutorialCount={unreadTutorials}
+                callsign={profile.callsign}
+                onOpenProfile={() => setIsProfileModalOpen(true)}
+                onToggleDesktop={() => setIsDesktopMode(true)}
+              />
+
+              <RadiationAlarmBanner
+                currentRadiation={currentRadiation}
+                settings={radiationSettings}
+                onUpdateSettings={setRadiationSettings}
+                onApplyAntirad={handleUseAntirad}
+                lang={lang}
               />
 
               {/* Main Content Area */}
@@ -272,6 +340,7 @@ export default function App() {
                     isLegendOpen={isLegendOpen}
                     onToggleLegend={() => setIsLegendOpen(o => !o)}
                     onCenterPlayerTrigger={centerPlayerTrigger}
+                    onRadiationChange={setCurrentRadiation}
                   />
                 )}
 
@@ -320,6 +389,8 @@ export default function App() {
                 onCenterPlayer={() => setCenterPlayerTrigger(c => c + 1)}
                 onToggleLegend={() => setIsLegendOpen(o => !o)}
                 isLegendOpen={isLegendOpen}
+                currentRadiation={currentRadiation}
+                isAntiradActive={isAntiradActive}
               />
             </>
           )}
@@ -330,6 +401,15 @@ export default function App() {
           <div className="w-20 h-1 bg-[#242b36] rounded-full" />
         </div>
       </div>
+      <ProfileModal
+        isOpen={isRegistrationRequired || isProfileModalOpen}
+        onClose={() => {
+          if (!isRegistrationRequired) setIsProfileModalOpen(false);
+        }}
+        profile={profile}
+        onUpdateProfile={setProfile}
+        lang={lang}
+      />
     </div>
   );
 }

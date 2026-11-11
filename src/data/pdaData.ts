@@ -1,4 +1,4 @@
-import { Quest, NoteItem, WeaponGearItem, TutorialTopic, MapMarker } from '../types/pda';
+import { Quest, NoteItem, WeaponGearItem, TutorialTopic, MapMarker, UserProfile, RadiationAlarmSettings } from '../types/pda';
 
 export const INITIAL_MAP_MARKERS: MapMarker[] = [
   // --- CHORNOBYL ZONE MACRO OVERVIEW ---
@@ -508,7 +508,7 @@ export const DEFAULT_USER_PROFILE: UserProfile = {
   idNumber: 'Z-UKR-2024-8841',
   radiationDose: 0.14,
   registeredAt: '2024-11-10',
-  isLoggedIn: true
+  isLoggedIn: false
 };
 
 export const DEFAULT_RADIATION_ALARM: RadiationAlarmSettings = {

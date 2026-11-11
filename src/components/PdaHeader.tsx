@@ -1,7 +1,7 @@
 import React from 'react';
 import { PdaTab, Language } from '../types/pda';
 import { playPdaTabSwitch, playPdaClick, toggleMute, getMuteState } from '../utils/audio';
-import { Volume2, VolumeX, Radio, Globe } from 'lucide-react';
+import { Volume2, VolumeX, Radio, Globe, IdCard, Monitor } from 'lucide-react';
 
 interface PdaHeaderProps {
   currentTab: PdaTab;
@@ -10,6 +10,9 @@ interface PdaHeaderProps {
   onToggleLang: () => void;
   unreadNotesCount: number;
   unreadTutorialCount: number;
+  callsign: string;
+  onOpenProfile: () => void;
+  onToggleDesktop: () => void;
 }
 
 export const PdaHeader: React.FC<PdaHeaderProps> = ({
@@ -18,7 +21,10 @@ export const PdaHeader: React.FC<PdaHeaderProps> = ({
   lang,
   onToggleLang,
   unreadNotesCount,
-  unreadTutorialCount
+  unreadTutorialCount,
+  callsign,
+  onOpenProfile,
+  onToggleDesktop
 }) => {
   const [time, setTime] = React.useState('01:00');
   const [muted, setMuted] = React.useState(getMuteState());
@@ -90,6 +96,23 @@ export const PdaHeader: React.FC<PdaHeaderProps> = ({
 
         {/* Right: Controls, Sound, Lang & Clock */}
         <div className="flex items-center gap-4">
+          <button
+            onClick={onOpenProfile}
+            title={lang === 'uk' ? 'Реєстрація та профіль' : 'Registration and profile'}
+            className="flex items-center gap-1.5 px-2 py-1 rounded bg-[#181c22] border border-[#2d3440] hover:border-[#ff9d00] text-[#c5cbd4] hover:text-white transition-colors cursor-pointer"
+          >
+            <IdCard className="w-3.5 h-3.5 text-[#ff9d00]" />
+            <span className="hidden lg:inline max-w-24 truncate">{callsign}</span>
+          </button>
+          <button
+            onClick={onToggleDesktop}
+            title={lang === 'uk' ? 'Перейти до режиму ПК' : 'Switch to PC mode'}
+            className="flex items-center gap-1.5 px-2 py-1 rounded bg-[#181c22] border border-[#2d3440] hover:border-[#ff9d00] text-[#c5cbd4] hover:text-white transition-colors cursor-pointer"
+          >
+            <Monitor className="w-3.5 h-3.5 text-[#ff9d00]" />
+            <span className="hidden sm:inline">{lang === 'uk' ? 'Режим ПК' : 'PC mode'}</span>
+          </button>
+
           {/* Language Switcher */}
           <button
             onClick={() => {
